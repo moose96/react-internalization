@@ -1,68 +1,192 @@
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# React Internalization
 
-## Available Scripts
+This is a simple library which allows React.js developer to create easily translations for their components.
+The package contains three components:
+* **Internalization** - main component which loads translations data and globally store current language.
+* **Translations** - component which iterate through keys of translations object and allows developer to view every key as a component.
+* **Tr** - a wrapper on component which is supposed to be translate.
 
-In the project directory, you can run:
+and two hooks:
+* **useLanguages** - hook version of Translations component.
+* **useTranslation** - hook version of Tr component.
 
-### `npm start`
+## Installation
+Use *git clone* to copy this repository to your local storage, and simply copy the internalization folder into src.
 
-Runs the app in the development mode.<br />
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Translations object API
+There are two ways to serve translations for this library:
+1. You can create JSON file in public folder and import it directly into source files. The example file is given below:
+```json
+{
+  "en": {
+    "greetings": "Hello world",
+    "thanks": "Thank you!"
+  },
+  "sp": {
+    "greetings": "Hola mundo",
+    "thanks": "¡Gracias!"
+  }
+}
+```
 
-The page will reload if you make edits.<br />
-You will also see any lint errors in the console.
+Each language keys are supposed to have length equal 2.
+Language objects assigned to language keys can be nested, example:
+```json
+{
+  "en": {
+    "MessageBox": {
+      "Yes": "Yes",
+      "No": "No"
+    }
+  },
+  "default": "en"
+}
+```
 
-### `npm test`
+2. You can serve JSON object from your REST API server. You should return object consist of one key with current language name, for example:
+```
+https://path.to.your.api.com/translations/en
+```
+It returns object:
+```json
+{
+  "en": {
+    "key": "value"
+  }
+}
+```
 
-Launches the test runner in the interactive watch mode.<br />
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+It is necessary, because Internalization component returns the value stored in *lang* prop key. When key is undefined, the component use *defaultLang* prop to do it. When defaultLang is not exist in translation object, the Tr components throw exceptions.
 
-### `npm run build`
+## Components API
 
-Builds the app for production to the `build` folder.<br />
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Internalization
+```
+<Internalization
+  data: Translation Object,
+  lang: String,
+  defaultLang: String,
+  children: Node
+>
+```
 
-The build is minified and the filenames include the hashes.<br />
-Your app is ready to be deployed!
+This is a main component which store the translation part from translation object given from *lang* or *defaultLang* key.
+You should always wrap all components which use Tr component by this.
+```jsx
+//imports...
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+const App => () {
+  return(
+    <Internalization data={translations} lang="en" defaultLang="en">
+      <div className="App">
+        <Tr component={<p>} iKey="helloWorld" />
+      </div>
+    </Internalization>
+  )
+}
+```
 
-### `npm run eject`
+### Translations
+```
+<Translations
+  children: function(value, index)
+  translations: Object
+>
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+This component iterates through keys of translation object and allows developers use them where they want.
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```xml
+//...
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+<Translations translations={data}>
+  {(lang, index) => <p key={index}>{lang}</p>}
+</Translations>
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+//...
 
-## Learn More
+const [translations, setTranslations] = useState([]);
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+<Translations translations={data}>
+  {lang => setTranslations([
+    ...translations,
+    lang
+  ])}
+</Translations>
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### Tr
+```
+<Tr
+  component: React.Component
+  iKey: String
+  ...props
+>
+```
 
-### Code Splitting
+This component create new component from *component* prop and set as its children value stored in translation object, which is identified by *iKey* prop. If you want to get value from nested objects you can just create string from each key of each nested object and separate them by period *(.)*. You can also set any props you want and they will be passed into new component.
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/code-splitting
+Let the translation object has the following shape:
 
-### Analyzing the Bundle Size
+```js
+const translations = {
+  'en': {
+    'key1': 'hello',
+    'key2': 'world'
+  }
+}
+```
+The **Tr** component below:
+```xml
+<Tr component={<p>} iKey="key1" />
+```
+generates following html code:
+```html
+<p>hello</p>
+```
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size
+#### More examples
+```xml
+<Tr component={<a>} iKey="key1" href="/submit" title="world" />
+```
+```html
+<a href="/submit" title="world">hello</a>
+```
 
-### Making a Progressive Web App
+If you set *component* prop as component with children, and the key value from *iKey* prop is undefined then **Tr** component returns component without changes.
+```xml
+<Tr component={<p>default</p>} iKey="key3">
+```
+(*key3* is undefined)
+```html
+<p>default</p>
+```
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app
+Also you can set props inside *component* props instead of setting props in **Tr** component:
+```xml
+<Tr component={<a href="/submit">default</a>} iKey="key1" />
+```
+It also helps to avoid some warnings from eslint.
 
-### Advanced Configuration
+## Hooks API
+Hooks allow developer use **Translations** and **Tr** components without using JSX.
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/advanced-configuration
+### useLanguages
+useLanguages like Translations returns the array with languages ID.
+```js
+const langs = useLanguages(translations);
+// ['en', 'fr', 'ru', 'pl'];
+```
 
-### Deployment
+### useTranslation
+useTranslation like Tr return the value from translation object. It should return the value or object with *key: value* pairs.
+```js
+const title = useTranslation('MessageBox.title');
+// title = 'some title'
 
-This section has moved here: https://facebook.github.io/create-react-app/docs/deployment
+const MessageBox = useTranslation('MessageBox');
+const otherTitle = MessageBox.title;
+```
 
-### `npm run build` fails to minify
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify
+## More examples
+TODO
